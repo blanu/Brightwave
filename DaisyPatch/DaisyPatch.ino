@@ -45,15 +45,17 @@
 #include <U8g2lib.h>
 
 #include "Gate.h"
-#include "Print.h"
+#include "Calculations.h"
 
+// Count and hold state machine
 enum EncoderMode
 {
-  SAMPLE_MODE = 0,
-  HOLD_MODE = 1
+  COUNT_MODE = 0,
+  HOLD_MODE = 1,
+  START_COUNT_MODE = 2,
+  START_HOLD_MODE = 3,
 };
 
-const int maxHolds = 16;
 const int sampleAudioChannel = 0;
 
 const int marginX = 1;
@@ -65,76 +67,57 @@ int cursorX = marginX;
 int cursorY = marginY;
 
 DaisyHardware hw;
-
 DaisyHardware patch;
-Oscillator osc;
 
 // oled
 U8X8_SSD1309_128X64_NONAME0_4W_SW_SPI oled(/* clock=*/8, /* data=*/10,
                                            /* cs=*/7, /* dc=*/9, /* reset=*/30);
 
-int num_waves, num_channels;
-
 float sampleRate = 0;
 
-// Fundametal frequency holds are in Hz
-float holds[maxHolds] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-int holdPos=0;
+// Fundametal frequency hold is in Hz
+float hold = 0.0;
 
 const int maxTones = 20;
 const int maxThresholds = maxTones + 1;
 float remaps[maxTones] = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0};
 float thresholds[maxThresholds] = {-10.0, -9.0, -8.0, -7.0, -6.0, -5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0};
 
-EncoderMode mode = HOLD_MODE;
-EncoderMode lastMode = HOLD_MODE;
-
+EncoderMode mode = HOLD_MODE; // Count/hold state machine
 float lastSample = 0; // Value of previous sample, for calculating direction
 int lastCrossing = 0; // sample count at last zero-crossing
 int sampleCount = 0;  // current sample count
 float frequency = 0;
 
-Gate gate0 = {patch, 0};
+// Gate inputs
+Gate gate0 = {patch, 0}; // patch object, gate number 0
+Gate gate1 = {patch, 1}; // patch object, gate number 1
 
 int lastScreenUpdate = 0;
 
-static void AudioCallback(float **in, float **out, size_t size) {
-  float sig, freq, amp;
-  size_t wave;
-
-  // Read gate input
-  bool gate0On = patch.gateIns[0].State() == 1;
-
-  if (mode == SAMPLE_MODE)
+static void AudioCallback(float **in, float **out, size_t size)
+{
+  switch (mode)
   {
-    sample(in, size);
-
-    // Output CV Out 1 - Hold, 1V/Oct
-    analogWrite(PIN_PATCH_CV_1, scale(frequency));    
-  }
-  else // mode == HOLD
-  {
-    // Output CV Out 1 - Hold, 1V/Oct
-    if (holds[holdPos] == 0)
-    {
-      // Use default output from CTRL 1.
-      analogWrite(PIN_PATCH_CV_1, analogRead(PIN_PATCH_CTRL_1));
-    }
-    else
-    {
-      // Output held value
-      analogWrite(PIN_PATCH_CV_1, scale(holds[holdPos]));
-    }    
+    case START_COUNT_MODE:
+      // Wait for COUNT_MODE to avoid race conditions
+      break;
+    case START_HOLD_MODE:
+      // Wait for HOLD_MODE to avoid race conditions
+      break;
+    case COUNT_MODE:
+      count(in, size);
+      break;
+    case HOLD_MODE:
+      break;
+    default:
+      break;
   }
 }
 
 void setup() {  
-  num_waves = Oscillator::WAVE_LAST - 1;
   hw = DAISY.init(DAISY_PATCH, AUDIO_SR_48K);
-  num_channels = hw.num_channels;
   sampleRate = DAISY.get_samplerate();
-
-  osc.Init(sampleRate); // Init oscillator
 
   oled.setFont(u8x8_font_chroma48medium8_r);
   oled.begin();
@@ -144,43 +127,97 @@ void setup() {
 
 void loop()
 {
+  updateControls();
+  runCalculations();
+  updateControlOutputs();
+  updateDisplay();
+}
+
+void updateControls()
+{
   hw.DebounceControls();
 
+  // CTRL 2 is left of center.
   if (analogRead(PIN_PATCH_CTRL_2) > 512)
   {
-    mode = SAMPLE_MODE;
-
-    switch (lastMode)
+    switch (mode)
     {
-      // Continue sampling
-      case SAMPLE_MODE:
+      case COUNT_MODE:
         break;
-      // Start holding
-      case HOLD_MODE:    
-        holds[holdPos] = frequency;
+      default:
+        mode = START_COUNT_MODE;
         break;
-    }    
+    }
   }
-  else // CTRL2 <= 512
+  else // CTRL2 <= 512, so CTRL2 is right of center (or center).
   {
-    mode = HOLD_MODE;
-
-    switch (lastMode)
+    switch (mode)
     {
-      // Start sampling
-      case SAMPLE_MODE:
-        lastSample = 0;
-        lastCrossing = 0;
-        sampleCount = 0;        
+      case HOLD_MODE:
         break;
-      // Continue holding
-      case HOLD_MODE:    
+      default:
+        mode = START_HOLD_MODE;
         break;
-    }        
+    }
   }
+}
 
-  lastMode = mode;
-  
+void runCalculations()
+{
+  switch (mode)
+  {
+    case START_COUNT_MODE:
+      lastSample = 0;
+      lastCrossing = 0;
+      sampleCount = 0;        
+      break;
+    case START_HOLD_MODE:
+      hold = frequency;
+      break;
+     case HOLD_MODE:
+       break;
+     case COUNT_MODE:
+       break;
+     default:
+       break;
+  }  
+}
+
+// Updates CV and Gate outputs. Audio outputs are handled by AudioCallback()
+void updateControlOutputs()
+{
+  switch (mode)
+  {
+    case START_COUNT_MODE:
+      // Wait for COUNT_MODE to avoid race conditions
+      break;
+    case START_HOLD_MODE:
+      // Wait for HOLD_MODE to avoid race conditions
+      break;
+    case COUNT_MODE:  
+      // Output CV Out 1 - Current counted frequency scaled to 1V/Oct
+      analogWrite(PIN_PATCH_CV_1, scale(frequency));    
+      break;
+    case HOLD_MODE:
+      // Output CV Out 1
+      if (hold == 0) // No hold frequency?
+      {
+        // Use default output from CTRL 1.
+        analogWrite(PIN_PATCH_CV_1, analogRead(PIN_PATCH_CTRL_1));
+      }
+      else // We have a hold frequency
+      {
+        // Output held value scaled to 1V/Oct
+        analogWrite(PIN_PATCH_CV_1, scale(hold));
+      }    
+      break;
+    default:
+      break;
+  }  
+}
+
+void updateDisplay()
+{
   int now = millis();
   int duration = now - lastScreenUpdate;
 
@@ -192,11 +229,13 @@ void loop()
   
     switch(mode)
     {
-      case SAMPLE_MODE:
+      case START_COUNT_MODE:
+      case COUNT_MODE:
         println("Sampling %f", frequency);
         break;
+      case START_HOLD_MODE:
       case HOLD_MODE:
-        println("Holding %f", holds[holdPos]);
+        println("Holding %f", hold);
         break;
     }
 
@@ -204,7 +243,7 @@ void loop()
   }
 }
 
-void sample(float **in, size_t size)
+void count(float **in, size_t size)
 {
   for(int sampleNumber = 0; sampleNumber < size; sampleNumber++)
   {    
@@ -240,103 +279,12 @@ void sample(float **in, size_t size)
   }
 }
 
-// Calculate zero crossings
-bool checkCrossing(float lastSample, float nextSample)
-{
-  if (lastSample == nextSample) {return false;}
-
-  if (lastSample < 0)
-  {
-    if (nextSample > 0)
-    {
-      // We have a zero-crossing!
-      return true;
-    }
-  }
-  else if (lastSample > 0)
-  {
-    if (nextSample < 0)
-    {
-      // We have a zero-crossing!
-      return true;
-    }
-  }
-  else // lastSample == 0
-  {
-    if (nextSample < 0)
-    {
-      // We have a zero-crossing!
-      return true;
-    }
-    else if (nextSample > 0)
-    {
-      // We have a zero-crossing!
-      return true;
-    }
-    else
-    {
-      return false;
-    }
-  }
-}
-
-// Convert Hertz to 1V/Oct CV out
-float scale(float hertz)
-{
-  float result = hertz;
-  
-  // Audible Hertz range from 20 to 20,000.
-  // CV out ranges from 0 to 255.
-  // Pin out   0 -     0 Hz -  -4V
-  // Pin out   1 -     1 Hz -  -3V
-  // Pin out   2 -     2 Hz -  -2V
-  // Pin out   4 -     4 Hz -  -1V
-  // Pin out   8 -     8 Hz -   0V
-  // Pin out  16 -    16 Hz -   1V
-  // Pin out  32 -    32 Hz -   2V
-  // Pin out  64 -    64 Hz -   3V
-  // Pin out 128 -   128 Hz -   4V
-  // Pin out 255 -   255 Hz -   5V
-
-  if (hertz < 0)
-  {
-    return 0;
-  }
-
-  if (hertz == 0)
-  {
-    return 0;
-  }
-
-  if (hertz < 1.0)
-  {
-    result = hertz;
-    
-    while (result < 1.0)
-    {
-      result *= 2;
-    }
-
-    return result;
-  }
-
-  if (hertz > 1.0)
-  {
-    result = hertz;
-    
-    while (result > 1.0)
-    {
-      result /= 2;
-    }
-
-    return result;
-  }
-
-  return hertz;
-}
-
 float remap(float input)
 {
+  int mappingIndex = findMapping(input);
+
+  float mapping = remaps[mappingIndex];
+  return mapping;
 }
 
 int findMapping(float input)
