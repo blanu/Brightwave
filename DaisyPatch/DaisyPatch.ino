@@ -9,7 +9,7 @@
 // ------
 // Audio Input 1 - Fundamental frequency sampler
 // MIDI In - MIDI to CV + Tone Mapping to MIDI Out
-// 
+//
 // Controls
 // --------
 // Gate In 1 - Sample/Hold - OR with Enc 1.
@@ -115,7 +115,7 @@ static void AudioCallback(float **in, float **out, size_t size)
   }
 }
 
-void setup() {  
+void setup() {
   hw = DAISY.init(DAISY_PATCH, AUDIO_SR_48K);
   sampleRate = DAISY.get_samplerate();
 
@@ -169,7 +169,7 @@ void runCalculations()
     case START_COUNT_MODE:
       lastSample = 0;
       lastCrossing = 0;
-      sampleCount = 0;        
+      sampleCount = 0;
       break;
     case START_HOLD_MODE:
       hold = frequency;
@@ -180,9 +180,7 @@ void runCalculations()
        break;
      default:
        break;
-  }  
-
-  
+  }
 }
 
 // Updates CV and Gate outputs. Audio outputs are handled by AudioCallback()
@@ -196,9 +194,9 @@ void updateControlOutputs()
     case START_HOLD_MODE:
       // Wait for HOLD_MODE to avoid race conditions
       break;
-    case COUNT_MODE:  
+    case COUNT_MODE:
       // Output CV Out 1 - Current counted frequency scaled to 1V/Oct
-      analogWrite(PIN_PATCH_CV_1, scale(frequency));    
+      analogWrite(PIN_PATCH_CV_1, scale(frequency));
       break;
     case HOLD_MODE:
       // Output CV Out 1
@@ -211,11 +209,11 @@ void updateControlOutputs()
       {
         // Output held value scaled to 1V/Oct
         analogWrite(PIN_PATCH_CV_1, scale(hold));
-      }    
+      }
       break;
     default:
       break;
-  }  
+  }
 }
 
 void updateDisplay()
@@ -226,9 +224,9 @@ void updateDisplay()
   if (duration > 1000)
   {
     resetDisplay();
-    
+
     println("Brightwave");
-  
+
     switch(mode)
     {
       case START_COUNT_MODE:
@@ -248,7 +246,7 @@ void updateDisplay()
 void count(float **in, size_t size)
 {
   for(int sampleNumber = 0; sampleNumber < size; sampleNumber++)
-  {    
+  {
     float nextSample = in[sampleAudioChannel][sampleNumber];
 
     if(sampleCount == 0) // We do not have a last sample.
@@ -257,9 +255,9 @@ void count(float **in, size_t size)
       sampleCount += 1;
     }
     else // We have a last sample.
-    {          
+    {
       if (checkCrossing(lastSample, nextSample))
-      {        
+      {
         if (lastCrossing == 0)
         {
           lastCrossing = sampleCount;
@@ -270,7 +268,7 @@ void count(float **in, size_t size)
           int samplesSinceCrossing = sampleCount - lastCrossing;
 
           frequency = sampleRate / samplesSinceCrossing;
-          
+
           lastCrossing = sampleCount;
         }
       }
@@ -302,7 +300,7 @@ int findMapping(float input)
   {
     return maxThresholds - 1;
   }
-  
+
   for(int thresholdIndex = 0; thresholdIndex < maxThresholds - 1; thresholdIndex++)
   {
     float lowerBound = thresholds[thresholdIndex];
@@ -349,7 +347,7 @@ void println(String label, int number)
 
 void print(const char *cstring)
 {
-  oled.drawString(cursorX, cursorY, cstring);  
+  oled.drawString(cursorX, cursorY, cstring);
   cursorX += strlen(cstring) * fontWidth;
   // Do not update cursorY
 }
