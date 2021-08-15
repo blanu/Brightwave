@@ -10,8 +10,6 @@ const int fontWidth = 8;
 
 struct Display
 {
-  Counter counter;
-
   int cursorX = marginX;
   int cursorY = marginY;
   
@@ -25,7 +23,7 @@ struct Display
     oled.begin();
   }
 
-  void update(EncoderMode mode, int hold, int toneControl, int tone, Buffer buffer)
+  void update(EncoderMode mode, int hold, int toneControl, int tone, Counter counter)
   {
     int now = millis();
     int duration = now - lastScreenUpdate;
@@ -43,7 +41,6 @@ struct Display
         case START_COUNT_MODE:
           counter.startSnapshot();
         case COUNT_MODE:
-          println("buffer len", buffer.appendIndex);
           println("counter.buffer len", counter.buffer.appendIndex);
           if (counter.buffer.appendIndex > 48) {
             println("<<<<<");

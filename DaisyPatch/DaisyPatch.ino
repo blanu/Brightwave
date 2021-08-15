@@ -100,7 +100,7 @@ void setup() {
   sampleRate = DAISY.get_samplerate();
   counter = {sampleRate};
   
-  display = {counter};
+  display = {};
   display.setup();
 
   DAISY.begin(AudioCallback);
@@ -113,7 +113,7 @@ void loop()
   updateControls();
   runCalculations();
   updateControlOutputs();
-  display.update(mode, hold, toneControl, toneOutput, counter.buffer);
+  display.update(mode, hold, toneControl, toneOutput, counter);
   Serial.println("lBL");
   Serial.println(lastBufferLen);
   delay(1000);
