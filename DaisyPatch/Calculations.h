@@ -1,3 +1,5 @@
+const int sampleAudioChannel = 0;
+
 // Convert Hertz to 1V/Oct CV out
 float scale(float hertz)
 {
@@ -53,42 +55,132 @@ float scale(float hertz)
   return hertz;
 }
 
-// Calculate zero crossings
-bool checkCrossing(float lastSample, float nextSample)
+struct Counter
 {
-  if (lastSample == nextSample) {return false;}
+  float sampleRate;
+  
+  float lastSample = 0; // Value of previous sample, for calculating direction
+  int lastCrossing = 0; // sample count at last zero-crossing
+  int sampleCount = 0;  // current sample count
+  float frequency = 0;
+  static const size_t snapshotSize = 48;
+  float audioSnapshot[snapshotSize];
+  bool snapshotNow = false;
+  bool snapshotComplete = false;
 
-  if (lastSample < 0)
+  void reset()
   {
-    if (nextSample > 0)
+    lastSample = 0;
+    lastCrossing = 0;
+    sampleCount = 0;
+    frequency = 0;
+  }
+  
+  float count(float **in, size_t size)
+  {
+    int newFrequency = 0;
+    
+    for(int sampleNumber = 0; sampleNumber < size; sampleNumber++)
     {
-      // We have a zero-crossing!
-      return true;
+      float nextSample = in[sampleAudioChannel][sampleNumber];
+
+      if (snapshotNow)
+      {
+        audioSnapshot[sampleNumber] = nextSample;
+      }
+  
+      if(sampleCount == 0) // We do not have a last sample.
+      {
+        lastSample = nextSample;
+        sampleCount += 1;
+      }
+      else // We have a last sample.
+      {
+        if (checkCrossing(lastSample, nextSample))
+        {
+          if (lastCrossing == 0)
+          {
+            lastCrossing = sampleCount;
+            continue;
+          }
+          else
+          {
+            int samplesSinceCrossing = sampleCount - lastCrossing;
+  
+            newFrequency = sampleRate / samplesSinceCrossing;
+  
+            lastCrossing = sampleCount;
+          }
+        }
+  
+        lastSample = nextSample;
+        sampleCount += 1;
+      }
+    }
+
+    if (snapshotNow)
+    {
+      snapshotNow = false;
+      snapshotComplete = true;
+    }
+  
+    frequency = newFrequency;
+  }
+
+  // Calculate zero crossings
+  bool checkCrossing(float lastSample, float nextSample)
+  {
+    if (lastSample == nextSample) {return false;}
+  
+    if (lastSample < 0)
+    {
+      if (nextSample > 0)
+      {
+        // We have a zero-crossing!
+        return true;
+      }
+    }
+    else if (lastSample > 0)
+    {
+      if (nextSample < 0)
+      {
+        // We have a zero-crossing!
+        return true;
+      }
+    }
+    else // lastSample == 0
+    {
+      if (nextSample < 0)
+      {
+        // We have a zero-crossing!
+        return true;
+      }
+      else if (nextSample > 0)
+      {
+        // We have a zero-crossing!
+        return true;
+      }
+      else
+      {
+        return false;
+      }
     }
   }
-  else if (lastSample > 0)
+
+  void startSnapshot()
   {
-    if (nextSample < 0)
-    {
-      // We have a zero-crossing!
-      return true;
-    }
+    snapshotComplete = false;
+    snapshotNow = true;
   }
-  else // lastSample == 0
+
+  bool checkSnapshot()
   {
-    if (nextSample < 0)
-    {
-      // We have a zero-crossing!
-      return true;
-    }
-    else if (nextSample > 0)
-    {
-      // We have a zero-crossing!
-      return true;
-    }
-    else
-    {
-      return false;
-    }
+    return snapshotComplete;
   }
-}
+
+  void completeSnapshot()
+  {
+    snapshotNow = false;
+    snapshotComplete = true;
+  }
+};

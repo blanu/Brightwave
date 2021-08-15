@@ -42,36 +42,15 @@
 // CV Out 2 - Multiplier: Fundamental Hold * Tone Ratio
 
 #include "DaisyDuino.h"
-#include <U8g2lib.h>
 
 #include "Gate.h"
 #include "Calculations.h"
-
-// Count and hold state machine
-enum EncoderMode
-{
-  COUNT_MODE = 0,
-  HOLD_MODE = 1,
-  START_COUNT_MODE = 2,
-  START_HOLD_MODE = 3,
-};
-
-const int sampleAudioChannel = 0;
-
-const int marginX = 1;
-const int marginY = 1;
-const int fontHeight = 2;
-const int fontWidth = 8;
-
-int cursorX = marginX;
-int cursorY = marginY;
+#include "Display.h"
+#include "Encoder.h"
+#include "RemappingQuantizer.h"
 
 DaisyHardware hw;
 DaisyHardware patch;
-
-// oled
-U8X8_SSD1309_128X64_NONAME0_4W_SW_SPI oled(/* clock=*/8, /* data=*/10,
-                                           /* cs=*/7, /* dc=*/9, /* reset=*/30);
 
 float sampleRate = 0;
 
@@ -85,11 +64,9 @@ float remaps[maxTones] = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0
 //float thresholds[maxThresholds] = {0, 64, 128, 192, 256, 320, 384, 448, 512, 576, 640, 704, 768, 832, 896, 960};
 float thresholds[maxThresholds] = {220, 240, 270, 290, 320, 340, 380, 390, 460, 480, 500, 530, 550, 585, 600, 610};
 
+// Count and hold
+Counter counter;
 EncoderMode mode = HOLD_MODE; // Count/hold state machine
-float lastSample = 0; // Value of previous sample, for calculating direction
-int lastCrossing = 0; // sample count at last zero-crossing
-int sampleCount = 0;  // current sample count
-float frequency = 0;
 int toneControl;
 int audioBufferSize;
 int firstSample = 0;
@@ -98,7 +75,8 @@ int firstSample = 0;
 Gate gate0 = {patch, 0}; // patch object, gate number 0
 Gate gate1 = {patch, 1}; // patch object, gate number 1
 
-int lastScreenUpdate = 0;
+// Display
+Display display;
 
 static void AudioCallback(float **in, float **out, size_t size)
 {
@@ -118,7 +96,7 @@ static void AudioCallback(float **in, float **out, size_t size)
       // Wait for HOLD_MODE to avoid race conditions
       break;
     case COUNT_MODE:
-      count(in, size);
+      counter.count(in, size);
       break;
     case HOLD_MODE:
       break;
@@ -131,9 +109,10 @@ void setup()
 {
   hw = DAISY.init(DAISY_PATCH, AUDIO_SR_48K);
   sampleRate = DAISY.get_samplerate();
-
-  oled.setFont(u8x8_font_chroma48medium8_r);
-  oled.begin();
+  counter = {sampleRate};
+  
+  display = {counter};
+  display.setup();
 
   DAISY.begin(AudioCallback);
 }
@@ -143,7 +122,7 @@ void loop()
   updateControls();
   runCalculations();
   updateControlOutputs();
-  updateDisplay();
+  display.update(mode, hold, toneControl);
 }
 
 void updateControls()
@@ -182,12 +161,10 @@ void runCalculations()
   switch (mode)
   {
     case START_COUNT_MODE:
-      lastSample = 0;
-      lastCrossing = 0;
-      sampleCount = 0;
+      counter.reset();
       break;
     case START_HOLD_MODE:
-      hold = frequency;
+      hold = counter.frequency;
       break;
      case HOLD_MODE:
        break;
@@ -211,7 +188,7 @@ void updateControlOutputs()
       break;
     case COUNT_MODE:
       // Output CV Out 1 - Current counted frequency scaled to 1V/Oct
-      analogWrite(PIN_PATCH_CV_1, scale(frequency));
+      analogWrite(PIN_PATCH_CV_1, scale(counter.frequency));
       break;
     case HOLD_MODE:
       // Output CV Out 1
@@ -228,71 +205,6 @@ void updateControlOutputs()
       break;
     default:
       break;
-  }
-}
-
-void updateDisplay()
-{
-  int now = millis();
-  int duration = now - lastScreenUpdate;
-
-  if (duration > 1000)
-  {
-    resetDisplay();
-
-    println("Brightwave", (int)firstSample);
-
-    switch(mode)
-    {
-      case START_COUNT_MODE:
-      case COUNT_MODE:
-        println("Sampling", frequency);
-        break;
-      case START_HOLD_MODE:
-      case HOLD_MODE:
-        println("Holding", hold);
-        break;
-    }
-
-    println("CTRL3 %d", toneControl);
-
-    lastScreenUpdate = now;
-  }
-}
-
-float count(float **in, size_t size)
-{
-  for(int sampleNumber = 0; sampleNumber < size; sampleNumber++)
-  {
-    float nextSample = in[sampleAudioChannel][sampleNumber];
-
-    if(sampleCount == 0) // We do not have a last sample.
-    {
-      lastSample = nextSample;
-      sampleCount += 1;
-    }
-    else // We have a last sample.
-    {
-      if (checkCrossing(lastSample, nextSample))
-      {
-        if (lastCrossing == 0)
-        {
-          lastCrossing = sampleCount;
-          continue;
-        }
-        else
-        {
-          int samplesSinceCrossing = sampleCount - lastCrossing;
-
-          frequency = sampleRate / samplesSinceCrossing;
-
-          lastCrossing = sampleCount;
-        }
-      }
-
-      lastSample = nextSample;
-      sampleCount += 1;
-    }
   }
 }
 
@@ -330,62 +242,4 @@ int findMapping(float input)
   }
 
   return maxThresholds - 1;
-}
-
-void resetDisplay()
-{
-  cursorX = 0;
-  cursorY = 0;
-
-  oled.clearDisplay();
-}
-
-// Convenience print functions
-
-void println(String label, float number)
-{
-  String outputString = String(label);
-  outputString.concat(" ");
-  
-  String floatString = String(number, 1); // Convert float to string with one decimal place.
-  outputString.concat(floatString);
-  
-  println(outputString);
-}
-
-void println(String label, int number)
-{
-  String outputString = String(label);
-  outputString.concat(" ");
-
-  String intString = String(number);
-  outputString.concat(intString);
-  
-  println(outputString);
-}
-
-void println(String string)
-{
-  const char *cstring = string.c_str();
-  println(cstring);
-}
-
-// Serious print functions
-
-void print(const char *cstring)
-{
-  oled.drawString(cursorX, cursorY, cstring);
-  cursorX += strlen(cstring) * fontWidth;
-  // Do not update cursorY
-
-  Serial.print(cstring);
-}
-
-void println(const char *cstring)
-{
-  oled.drawString(cursorX, cursorY, cstring);
-  cursorX = marginX;
-  cursorY += fontHeight;
-
-  Serial.println(cstring);
 }
