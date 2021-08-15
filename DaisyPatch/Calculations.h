@@ -63,6 +63,7 @@ struct Counter
   int lastCrossing = 0; // sample count at last zero-crossing
   int sampleCount = 0;  // current sample count
   float frequency = 0;
+  float frequency_fft = 0;
   static const size_t snapshotSize = 48;
   float audioSnapshot[snapshotSize];
   bool snapshotNow = false;
@@ -125,6 +126,26 @@ struct Counter
     }
   
     frequency = newFrequency;
+  }
+
+  float fft(float **in, size_t size)
+  {
+      uint16_t samples = (uint16_t)size;
+      arduinoFFT FFT = arduinoFFT();
+      double *vReal = (double *)in[sampleAudioChannel];
+      double vImag[samples];
+  
+      // zero imaginary part
+      for (size_t i = 0; i < samples; i++)
+      {
+          vImag[i] = 0.0;
+      }
+  
+      FFT.Windowing(vReal, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+      FFT.Compute(vReal, vImag, samples, FFT_FORWARD);
+      FFT.ComplexToMagnitude(vReal, vImag, samples);
+      frequency_fft = FFT.MajorPeak(vReal, samples, sampleRate);
+      return frequency_fft;
   }
 
   // Calculate zero crossings

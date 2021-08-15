@@ -42,6 +42,7 @@
 // CV Out 2 - Multiplier: Fundamental Hold * Tone Ratio
 
 #include "DaisyDuino.h"
+#include <arduinoFFT.h>
 
 #include "Gate.h"
 #include "Calculations.h"
@@ -50,7 +51,6 @@
 #include "RemappingQuantizer.h"
 
 DaisyHardware hw;
-DaisyHardware patch;
 
 float sampleRate = 0;
 
@@ -72,21 +72,27 @@ int audioBufferSize;
 int firstSample = 0;
 
 // Gate inputs
-Gate gate0 = {patch, 0}; // patch object, gate number 0
-Gate gate1 = {patch, 1}; // patch object, gate number 1
+Gate gate0 = {hw, 0}; // patch object, gate number 0
+Gate gate1 = {hw, 1}; // patch object, gate number 1
 
 // Display
 Display display;
+
+float buffer[48];
 
 static void AudioCallback(float **in, float **out, size_t size)
 {
   audioBufferSize = (int)size;
 
+  for (int i = 0; i < 48; i++) {
+    buffer[i] = in[0][i];
+  }
+
   if (in[0][0] > firstSample)
   {
     firstSample = in[0][0];
   }
-  
+
   switch (mode)
   {
     case START_COUNT_MODE:
@@ -97,6 +103,7 @@ static void AudioCallback(float **in, float **out, size_t size)
       break;
     case COUNT_MODE:
       counter.count(in, size);
+      counter.fft(in, size);
       break;
     case HOLD_MODE:
       break;
@@ -105,8 +112,8 @@ static void AudioCallback(float **in, float **out, size_t size)
   }
 }
 
-void setup()
-{
+void setup() {
+  Serial.begin();
   hw = DAISY.init(DAISY_PATCH, AUDIO_SR_48K);
   sampleRate = DAISY.get_samplerate();
   counter = {sampleRate};
@@ -119,10 +126,13 @@ void setup()
 
 void loop()
 {
+  Serial.println("looping!");
+  Serial.println(sampleRate);
   updateControls();
   runCalculations();
   updateControlOutputs();
   display.update(mode, hold, toneControl);
+  delay(1000);
 }
 
 void updateControls()
@@ -130,7 +140,7 @@ void updateControls()
   hw.DebounceControls();
 
   // CTRL 2 is left of center.
-  if (analogRead(PIN_PATCH_CTRL_2) > 512)
+  if (analogRead(PIN_PATCH_CTRL_2) < 512)
   {
     switch (mode)
     {
@@ -189,6 +199,7 @@ void updateControlOutputs()
     case COUNT_MODE:
       // Output CV Out 1 - Current counted frequency scaled to 1V/Oct
       analogWrite(PIN_PATCH_CV_1, scale(counter.frequency));
+      analogWrite(PIN_PATCH_CV_2, scale(counter.frequency_fft));
       break;
     case HOLD_MODE:
       // Output CV Out 1

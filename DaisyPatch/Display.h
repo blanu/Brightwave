@@ -34,6 +34,13 @@ struct Display
       resetDisplay();
   
       println("Brightwave");
+      println("");
+      println(">>>>>>>>>");
+      for (int i = 0; i < 48; i++)
+      {
+        printbuf(counter.audioSnapshot[i]);
+      }
+      println("<<<<<<<<<");
   
       switch(mode)
       {
@@ -41,6 +48,8 @@ struct Display
           counter.startSnapshot();
         case COUNT_MODE:
           println("Sampling", counter.frequency);
+          println("Sampling fft", counter.frequency_fft);
+          
           if (counter.checkSnapshot())
           {
             drawSnapshot(counter.audioSnapshot, counter.snapshotSize);
@@ -154,5 +163,12 @@ struct Display
     cursorY += fontHeight;
   
     Serial.println(cstring);
+  }  
+
+  void printbuf(float number)
+  {
+    String floatString = String(number, 1); // Convert float to string with one decimal place.
+    Serial.print(floatString);
+    Serial.print(" ");
   }  
 };
