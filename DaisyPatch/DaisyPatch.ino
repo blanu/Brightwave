@@ -80,14 +80,19 @@ float hold = 0.0;
 
 const int maxTones = 16;
 const int maxThresholds = maxTones + 1;
-float remaps[maxTones] = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0};
-float thresholds[maxThresholds] = {2.015, 2.14, 2.265, 2.39, 2.515, 2.64, 2.765, 2.89, 3.015, 3.14, 3.265, 3.39, 3.515, 3.64, 3.765, 3.89};
+float remaps[maxTones] = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0};
+//float thresholds[maxThresholds] = {2.015, 2.14, 2.265, 2.39, 2.515, 2.64, 2.765, 2.89, 3.015, 3.14, 3.265, 3.39, 3.515, 3.64, 3.765, 3.89};
+//float thresholds[maxThresholds] = {0, 64, 128, 192, 256, 320, 384, 448, 512, 576, 640, 704, 768, 832, 896, 960};
+float thresholds[maxThresholds] = {220, 240, 270, 290, 320, 340, 380, 390, 460, 480, 500, 530, 550, 585, 600, 610};
 
 EncoderMode mode = HOLD_MODE; // Count/hold state machine
 float lastSample = 0; // Value of previous sample, for calculating direction
 int lastCrossing = 0; // sample count at last zero-crossing
 int sampleCount = 0;  // current sample count
 float frequency = 0;
+int toneControl;
+int audioBufferSize;
+int firstSample = 0;
 
 // Gate inputs
 Gate gate0 = {patch, 0}; // patch object, gate number 0
@@ -97,6 +102,9 @@ int lastScreenUpdate = 0;
 
 static void AudioCallback(float **in, float **out, size_t size)
 {
+  audioBufferSize = (int)size;
+  firstSample = in[0][0];
+  
   switch (mode)
   {
     case START_COUNT_MODE:
@@ -115,7 +123,8 @@ static void AudioCallback(float **in, float **out, size_t size)
   }
 }
 
-void setup() {
+void setup()
+{
   hw = DAISY.init(DAISY_PATCH, AUDIO_SR_48K);
   sampleRate = DAISY.get_samplerate();
 
@@ -160,6 +169,8 @@ void updateControls()
         break;
     }
   }
+
+  toneControl = analogRead(PIN_PATCH_CTRL_3);
 }
 
 void runCalculations()
@@ -225,7 +236,7 @@ void updateDisplay()
   {
     resetDisplay();
 
-    println("Brightwave");
+    println("Brightwave %2.2f", firstSample);
 
     switch(mode)
     {
@@ -239,11 +250,13 @@ void updateDisplay()
         break;
     }
 
+    println("CTRL3 %d", toneControl);
+
     lastScreenUpdate = now;
   }
 }
 
-void count(float **in, size_t size)
+float count(float **in, size_t size)
 {
   for(int sampleNumber = 0; sampleNumber < size; sampleNumber++)
   {
