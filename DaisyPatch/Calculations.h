@@ -1,3 +1,5 @@
+#include "Buffer.h"
+
 const int sampleAudioChannel = 0;
 
 // Convert Hertz to 1V/Oct CV out
@@ -58,7 +60,8 @@ float scale(float hertz)
 struct Counter
 {
   float sampleRate;
-  
+
+  Buffer buffer = {};
   float lastSample = 0; // Value of previous sample, for calculating direction
   int lastCrossing = 0; // sample count at last zero-crossing
   int sampleCount = 0;  // current sample count
@@ -133,6 +136,10 @@ struct Counter
 
   float fft(float *in, size_t size)
   {
+    buffer.append(in, size);
+    
+    if (buffer.isFull())
+    {
       uint16_t samples = (uint16_t)size;
       arduinoFFT FFT = arduinoFFT();
       double vReal[samples*2];
@@ -150,6 +157,11 @@ struct Counter
       //FFT.ComplexToMagnitude(vReal, vImag, samples);
       //frequency_fft = FFT.MajorPeak(vReal, samples, sampleRate);
       return frequency_fft;
+    }
+    else
+    {
+      return 0.0;
+    }
   }
 
   // Calculate zero crossings

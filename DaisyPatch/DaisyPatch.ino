@@ -90,9 +90,7 @@ static void AudioCallback(float **in, float **out, size_t size)
       break;
     case COUNT_MODE:
       //counter.count(in, size);
-      if (buffer.isFull()) {
-          counter.fft(buffer.buffer, 4096);
-      }
+      counter.fft(in[0], size);
       break;
     case HOLD_MODE:
       break;
