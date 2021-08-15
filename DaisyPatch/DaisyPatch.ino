@@ -72,9 +72,13 @@ Gate gate1 = {hw, 1}; // patch object, gate number 1
 // Display
 Display display;
 
+Buffer buffer = {};
+
 static void AudioCallback(float **in, float **out, size_t size)
 {
   audioBufferSize = (int)size;
+
+  buffer.append(in[0], size);
 
   switch (mode)
   {
@@ -85,8 +89,10 @@ static void AudioCallback(float **in, float **out, size_t size)
       // Wait for HOLD_MODE to avoid race conditions
       break;
     case COUNT_MODE:
-      counter.count(in, size);
-      counter.fft(in, size);
+      //counter.count(in, size);
+      if (buffer.isFull()) {
+          counter.fft(buffer.buffer, 4096);
+      }
       break;
     case HOLD_MODE:
       break;
