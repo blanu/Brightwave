@@ -22,4 +22,4 @@ struct Buffer
   {
     return appendIndex == bufferSize;
   }
-}
+};

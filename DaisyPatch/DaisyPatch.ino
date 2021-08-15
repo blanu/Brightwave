@@ -49,6 +49,7 @@
 #include "Display.h"
 #include "Encoder.h"
 #include "RemappingQuantizer.h"
+#include "Buffer.h"
 
 DaisyHardware hw;
 
@@ -78,15 +79,13 @@ Gate gate1 = {hw, 1}; // patch object, gate number 1
 // Display
 Display display;
 
-float buffer[48];
+Buffer buffer = {};
 
 static void AudioCallback(float **in, float **out, size_t size)
 {
   audioBufferSize = (int)size;
 
-  for (int i = 0; i < 48; i++) {
-    buffer[i] = in[0][i];
-  }
+  buffer.append(in[0], size);
 
   if (in[0][0] > firstSample)
   {
@@ -102,8 +101,10 @@ static void AudioCallback(float **in, float **out, size_t size)
       // Wait for HOLD_MODE to avoid race conditions
       break;
     case COUNT_MODE:
-      counter.count(in, size);
-      counter.fft(in, size);
+      //counter.count(in, size);
+      if (buffer.isFull()) {
+          counter.fft(buffer.buffer, 4096);
+      }
       break;
     case HOLD_MODE:
       break;
