@@ -103,7 +103,11 @@ int lastScreenUpdate = 0;
 static void AudioCallback(float **in, float **out, size_t size)
 {
   audioBufferSize = (int)size;
-  firstSample = in[0][0];
+
+  if (in[0][0] > firstSample)
+  {
+    firstSample = in[0][0];
+  }
   
   switch (mode)
   {
@@ -236,17 +240,17 @@ void updateDisplay()
   {
     resetDisplay();
 
-    println("Brightwave %2.2f", firstSample);
+    println("Brightwave", (int)firstSample);
 
     switch(mode)
     {
       case START_COUNT_MODE:
       case COUNT_MODE:
-        println("Sampling %f", frequency);
+        println("Sampling", frequency);
         break;
       case START_HOLD_MODE:
       case HOLD_MODE:
-        println("Holding %f", hold);
+        println("Holding", hold);
         break;
     }
 
@@ -336,33 +340,45 @@ void resetDisplay()
   oled.clearDisplay();
 }
 
+// Convenience print functions
+
+void println(String label, float number)
+{
+  String outputString = String(label);
+  outputString.concat(" ");
+  
+  String floatString = String(number, 1); // Convert float to string with one decimal place.
+  outputString.concat(floatString);
+  
+  println(outputString);
+}
+
+void println(String label, int number)
+{
+  String outputString = String(label);
+  outputString.concat(" ");
+
+  String intString = String(number);
+  outputString.concat(intString);
+  
+  println(outputString);
+}
+
 void println(String string)
 {
   const char *cstring = string.c_str();
   println(cstring);
 }
 
-void println(String label, float number)
-{
-  char outputString[100];
-  const char *cstring = label.c_str();
-  sprintf(outputString, cstring, number);
-  println(outputString);
-}
-
-void println(String label, int number)
-{
-  char outputString[100];
-  const char *cstring = label.c_str();
-  sprintf(outputString, cstring, number);
-  println(outputString);
-}
+// Serious print functions
 
 void print(const char *cstring)
 {
   oled.drawString(cursorX, cursorY, cstring);
   cursorX += strlen(cstring) * fontWidth;
   // Do not update cursorY
+
+  Serial.print(cstring);
 }
 
 void println(const char *cstring)
@@ -370,4 +386,6 @@ void println(const char *cstring)
   oled.drawString(cursorX, cursorY, cstring);
   cursorX = marginX;
   cursorY += fontHeight;
+
+  Serial.println(cstring);
 }
