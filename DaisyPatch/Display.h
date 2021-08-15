@@ -43,6 +43,16 @@ struct Display
         case START_COUNT_MODE:
           counter.startSnapshot();
         case COUNT_MODE:
+          println("buffer len", buffer.appendIndex);
+          println("counter.buffer len", counter.buffer.appendIndex);
+          if (counter.buffer.appendIndex > 48) {
+            println("<<<<<");
+            for (int i = counter.buffer.appendIndex - 48; i < counter.buffer.appendIndex; i++) {
+              printbuf(counter.buffer.buffer[i]);            
+            }
+            println("");
+            println("<<<<<");
+          }
           println("Sampling", counter.frequency);
           println("Sampling fft", counter.frequency_fft);
           

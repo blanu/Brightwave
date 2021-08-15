@@ -71,14 +71,11 @@ Gate gate1 = {hw, 1}; // patch object, gate number 1
 
 // Display
 Display display;
-
-Buffer buffer = {};
+int lastBufferLen = 3;
 
 static void AudioCallback(float **in, float **out, size_t size)
 {
   audioBufferSize = (int)size;
-
-  buffer.append(in[0], size);
 
   switch (mode)
   {
@@ -90,7 +87,8 @@ static void AudioCallback(float **in, float **out, size_t size)
       break;
     case COUNT_MODE:
       //counter.count(in, size);
-      counter.fft(in[0], size);
+      counter.buffer.append(in[0], size);
+      lastBufferLen = counter.buffer.appendIndex; 
       break;
     case HOLD_MODE:
       break;
@@ -118,7 +116,9 @@ void loop()
   updateControls();
   runCalculations();
   updateControlOutputs();
-  display.update(mode, hold, toneControl, toneOutput, buffer);
+  display.update(mode, hold, toneControl, toneOutput, counter.buffer);
+  Serial.println("lBL");
+  Serial.println(lastBufferLen);
   delay(1000);
 }
 
@@ -168,6 +168,7 @@ void runCalculations()
      case HOLD_MODE:
        break;
      case COUNT_MODE:
+       counter.updateFft();
        break;
      default:
        break;

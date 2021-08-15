@@ -134,34 +134,35 @@ struct Counter
     frequency = newFrequency;
   }
 
-  float fft(float *in, size_t size)
-  {
+  void append(float *in, size_t size) {
     buffer.append(in, size);
-    
+  }
+
+  void updateFft() {
     if (buffer.isFull())
     {
-      uint16_t samples = (uint16_t)size;
-      arduinoFFT FFT = arduinoFFT();
-      double vReal[samples*2];
-      double vImag[samples*2];
-  
-      // zero imaginary part
-      for (size_t i = 0; i < samples; i++)
-      {
-          vReal[i] = in[i];
-          vImag[i] = 0.0;
-      }
-  
-      FFT.Windowing(vReal, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-      //FFT.Compute(vReal, vImag, samples, FFT_FORWARD);
-      //FFT.ComplexToMagnitude(vReal, vImag, samples);
-      //frequency_fft = FFT.MajorPeak(vReal, samples, sampleRate);
-      return frequency_fft;
+        fft(buffer.buffer, 4096);
     }
-    else
+  }
+
+  float fft(float *in, size_t size)
+  {
+    uint16_t samples = (uint16_t)size;
+    arduinoFFT FFT = arduinoFFT();
+    double vReal[samples];
+    double vImag[samples];
+  
+    // zero imaginary part
+    for (size_t i = 0; i < samples; i++)
     {
-      return 0.0;
+        vReal[i] = in[i];
+        vImag[i] = 0.0;
     }
+  
+    FFT.Windowing(vReal, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+    FFT.Compute(vReal, vImag, samples, FFT_FORWARD);
+    FFT.ComplexToMagnitude(vReal, vImag, samples);
+    frequency_fft = FFT.MajorPeak(vReal, samples, sampleRate);
   }
 
   // Calculate zero crossings
