@@ -1,6 +1,7 @@
 #include <U8g2lib.h>
 
 #include "Encoder.h"
+#include "Buffer.h"
 
 const int marginX = 1;
 const int marginY = 1;
@@ -24,7 +25,7 @@ struct Display
     oled.begin();
   }
 
-  void update(EncoderMode mode, int hold, int toneControl)
+  void update(EncoderMode mode, int hold, int toneControl, int tone, Buffer buffer)
   {
     int now = millis();
     int duration = now - lastScreenUpdate;
@@ -34,14 +35,9 @@ struct Display
       resetDisplay();
   
       println("Brightwave");
-      println("");
-      println(">>>>>>>>>");
-      for (int i = 0; i < 48; i++)
-      {
-        printbuf(counter.audioSnapshot[i]);
-      }
-      println("<<<<<<<<<");
-  
+      println("CTRL3", toneControl);
+      println("Tone", tone);
+        
       switch(mode)
       {
         case START_COUNT_MODE:
@@ -66,9 +62,7 @@ struct Display
           println("Holding", hold);
           break;
       }
-  
-      println("CTRL3", toneControl);
-  
+    
       lastScreenUpdate = now;
     }
   }

@@ -1,3 +1,6 @@
+#ifndef BUFFER_INCLUDE
+#define BUFFER_INCLUDE
+
 const int bufferSize = 4096;
 
 struct Buffer
@@ -22,4 +25,6 @@ struct Buffer
   {
     return appendIndex == bufferSize;
   }
-}
+};
+
+#endif
