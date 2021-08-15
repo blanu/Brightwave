@@ -43,6 +43,7 @@
 
 #include "DaisyDuino.h"
 #include <U8g2lib.h>
+#include <arduinoFFT.h>
 
 #include "Gate.h"
 #include "Calculations.h"
@@ -67,7 +68,6 @@ int cursorX = marginX;
 int cursorY = marginY;
 
 DaisyHardware hw;
-DaisyHardware patch;
 
 // oled
 U8X8_SSD1309_128X64_NONAME0_4W_SW_SPI oled(/* clock=*/8, /* data=*/10,
@@ -93,22 +93,29 @@ float frequency = 0;
 int toneControl;
 int audioBufferSize;
 int firstSample = 0;
+float frequency_fft = 0;
 
 // Gate inputs
-Gate gate0 = {patch, 0}; // patch object, gate number 0
-Gate gate1 = {patch, 1}; // patch object, gate number 1
+Gate gate0 = {hw, 0}; // patch object, gate number 0
+Gate gate1 = {hw, 1}; // patch object, gate number 1
 
 int lastScreenUpdate = 0;
+
+float buffer[48];
 
 static void AudioCallback(float **in, float **out, size_t size)
 {
   audioBufferSize = (int)size;
 
+  for (int i = 0; i < 48; i++) {
+    buffer[i] = in[0][i];
+  }
+
   if (in[0][0] > firstSample)
   {
     firstSample = in[0][0];
   }
-  
+
   switch (mode)
   {
     case START_COUNT_MODE:
@@ -119,6 +126,7 @@ static void AudioCallback(float **in, float **out, size_t size)
       break;
     case COUNT_MODE:
       count(in, size);
+      fft(in, size);
       break;
     case HOLD_MODE:
       break;
@@ -127,8 +135,8 @@ static void AudioCallback(float **in, float **out, size_t size)
   }
 }
 
-void setup()
-{
+void setup() {
+  Serial.begin();
   hw = DAISY.init(DAISY_PATCH, AUDIO_SR_48K);
   sampleRate = DAISY.get_samplerate();
 
@@ -140,10 +148,13 @@ void setup()
 
 void loop()
 {
+  Serial.println("looping!");
+  Serial.println(sampleRate);
   updateControls();
   runCalculations();
   updateControlOutputs();
   updateDisplay();
+  delay(1000);
 }
 
 void updateControls()
@@ -151,7 +162,7 @@ void updateControls()
   hw.DebounceControls();
 
   // CTRL 2 is left of center.
-  if (analogRead(PIN_PATCH_CTRL_2) > 512)
+  if (analogRead(PIN_PATCH_CTRL_2) < 512)
   {
     switch (mode)
     {
@@ -212,6 +223,7 @@ void updateControlOutputs()
     case COUNT_MODE:
       // Output CV Out 1 - Current counted frequency scaled to 1V/Oct
       analogWrite(PIN_PATCH_CV_1, scale(frequency));
+      analogWrite(PIN_PATCH_CV_2, scale(frequency_fft));
       break;
     case HOLD_MODE:
       // Output CV Out 1
@@ -241,12 +253,19 @@ void updateDisplay()
     resetDisplay();
 
     println("Brightwave", (int)firstSample);
+    println("");
+    println(">>>>>>>>>");
+    for (int i = 0; i < 48; i++) {
+      printbuf(buffer[i]);
+    }
+    println("<<<<<<<<<");
 
     switch(mode)
     {
       case START_COUNT_MODE:
       case COUNT_MODE:
-        println("Sampling", frequency);
+        println("Sampling count", frequency);
+        println("Sampling fft", frequency_fft);
         break;
       case START_HOLD_MODE:
       case HOLD_MODE:
@@ -258,6 +277,25 @@ void updateDisplay()
 
     lastScreenUpdate = now;
   }
+}
+
+void fft(float **in, size_t size)
+{
+    uint16_t samples = (uint16_t)size;
+    arduinoFFT FFT = arduinoFFT();
+    double *vReal = (double *)in[sampleAudioChannel];
+    double vImag[samples];
+
+    // zero imaginary part
+    for (size_t i = 0; i < samples; i++)
+    {
+        vImag[i] = 0.0;
+    }
+
+    FFT.Windowing(vReal, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+    FFT.Compute(vReal, vImag, samples, FFT_FORWARD);
+    FFT.ComplexToMagnitude(vReal, vImag, samples);
+    frequency_fft = FFT.MajorPeak(vReal, samples, sampleRate);
 }
 
 float count(float **in, size_t size)
@@ -346,11 +384,18 @@ void println(String label, float number)
 {
   String outputString = String(label);
   outputString.concat(" ");
-  
+
   String floatString = String(number, 1); // Convert float to string with one decimal place.
   outputString.concat(floatString);
-  
+
   println(outputString);
+}
+
+void printbuf(float number)
+{
+  String floatString = String(number, 1); // Convert float to string with one decimal place.
+  Serial.print(floatString);
+  Serial.print(" ");
 }
 
 void println(String label, int number)
@@ -360,7 +405,7 @@ void println(String label, int number)
 
   String intString = String(number);
   outputString.concat(intString);
-  
+
   println(outputString);
 }
 
