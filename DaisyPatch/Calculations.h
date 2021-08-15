@@ -107,8 +107,11 @@ struct Counter
           else
           {
             int samplesSinceCrossing = sampleCount - lastCrossing;
-  
-            newFrequency = sampleRate / samplesSinceCrossing;
+
+            if (samplesSinceCrossing > 0)
+            {
+              newFrequency = sampleRate / samplesSinceCrossing;
+            }
   
             lastCrossing = sampleCount;
           }

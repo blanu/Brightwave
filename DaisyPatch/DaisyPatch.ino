@@ -172,9 +172,11 @@ void runCalculations()
   {
     case START_COUNT_MODE:
       counter.reset();
+      mode = COUNT_MODE;
       break;
     case START_HOLD_MODE:
       hold = counter.frequency;
+      mode = HOLD_MODE;
       break;
      case HOLD_MODE:
        break;

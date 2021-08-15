@@ -67,7 +67,7 @@ struct Display
           break;
       }
   
-      println("CTRL3 %d", toneControl);
+      println("CTRL3", toneControl);
   
       lastScreenUpdate = now;
     }
