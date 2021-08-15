@@ -76,10 +76,6 @@ Buffer buffer = {};
 
 static void AudioCallback(float **in, float **out, size_t size)
 {
-  audioBufferSize = (int)size;
-
-  buffer.append(in[0], size);
-
   switch (mode)
   {
     case START_COUNT_MODE:
@@ -89,8 +85,7 @@ static void AudioCallback(float **in, float **out, size_t size)
       // Wait for HOLD_MODE to avoid race conditions
       break;
     case COUNT_MODE:
-      //counter.count(in, size);
-      counter.fft(in[0], size);
+      buffer.append(in[0], size);
       break;
     case HOLD_MODE:
       break;
