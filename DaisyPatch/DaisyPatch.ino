@@ -29,7 +29,7 @@
 //
 // Outputs
 // -------
-// Audio Out 1 - Held waveform
+// Audio Out 1 - Held waveformd
 // Audio Out 2 - FM modulated sine wave at fundamental frequency, FM controlled by Audio In 1
 //               FM modulates between the fundamental and the tone at a rate specified by the audio input
 // Audio Out 3 - FM modulated triangle wave at fundamental frequency, FM controlled by Audio In 3
@@ -135,7 +135,7 @@ void loop()
   display.update(mode, hold, toneControl, toneOutput, counter);
   Serial.println("lBL");
   Serial.println(lastBufferLen);
-  delay(1000);
+//  delay(100);
 }
 
 void updateControls()
