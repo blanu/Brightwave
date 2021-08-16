@@ -50,6 +50,7 @@
 #include "Encoder.h"
 #include "RemappingQuantizer.h"
 #include "Buffer.h"
+//#include "Harmonizer.h"
 
 DaisyHardware hw;
 
@@ -73,6 +74,8 @@ Gate gate1 = {hw, 1}; // patch object, gate number 1
 Display display;
 int lastBufferLen = 3;
 
+//Harmonizer harmony = {};
+
 static void AudioCallback(float **in, float **out, size_t size)
 {
   switch (mode)
@@ -86,8 +89,21 @@ static void AudioCallback(float **in, float **out, size_t size)
     case COUNT_MODE:
       counter.buffer.append(in[0], size);
       lastBufferLen = counter.buffer.appendIndex; 
+
+      if (counter.frequency_fft > 0)
+      {
+//        harmony.setFrequency(counter.frequency_fft);
+//        harmony.process(out, size);  
+      }
+      
       break;
     case HOLD_MODE:
+      if (hold > 0)
+      {
+//        harmony.setFrequency(hold);
+//        harmony.process(out, size);  
+      }
+    
       break;
     default:
       break;
