@@ -3,26 +3,30 @@
 
 struct WindowedBuffer
 {
+  static const int bufferSize = 4096;
   float buffer[bufferSize];
   int appendIndex = 0;
 
   void append(float *values, size_t size)
   {
-    if (appendIndex + size >= bufferSize)
+    if (appendIndex >= bufferSize)
     {
-      int extra = bufferSize - (appendIndex + size);
+        int extra = (appendIndex + size) - bufferSize;
 
-      memcpy(buffer, buffer + extra, extra);
-      appendIndex -= extra;
+        //memmove(buffer, buffer + extra, appendIndex);
+        for (int i = 0; i < appendIndex; i++) {
+            buffer[i] = buffer[i+extra];
+        }
+        appendIndex -= extra;
     }
-    
+
     for(int index = 0; index < size; index++)
     {
       if (appendIndex >= bufferSize)
       {
         return;
       }
-      
+
       buffer[appendIndex++] = values[index];
     }
   }

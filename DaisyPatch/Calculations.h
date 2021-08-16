@@ -1,4 +1,4 @@
-#include "Buffer.h"
+#include "WindowedBuffer.h"
 
 const int sampleAudioChannel = 0;
 
@@ -20,48 +20,23 @@ float scale(float hertz)
   // Pin out 128 -   128 Hz -   4V
   // Pin out 255 -   255 Hz -   5V
 
-  if (hertz < 0)
+  if (hertz <= 0)
   {
     return 0;
   }
 
-  if (hertz == 0)
-  {
-    return 0;
+  float out = (hertz / 6000.0) * 255;
+  if (out > 255) {
+    return 255;
   }
-
-  if (hertz < 1.0)
-  {
-    result = hertz;
-    
-    while (result < 1.0)
-    {
-      result *= 2;
-    }
-
-    return result;
-  }
-
-  if (hertz > 1.0)
-  {
-    result = hertz;
-    
-    while (result > 1.0)
-    {
-      result /= 2;
-    }
-
-    return result;
-  }
-
-  return hertz;
+  return out;
 }
 
 struct Counter
 {
   float sampleRate;
 
-  Buffer buffer = {};
+  WindowedBuffer buffer = {};
   float lastSample = 0; // Value of previous sample, for calculating direction
   int lastCrossing = 0; // sample count at last zero-crossing
   int sampleCount = 0;  // current sample count
