@@ -80,6 +80,11 @@ static void AudioCallback(float **in, float **out, size_t size)
 {
   audioBufferSize = (int)size;
 
+  for (int i = 0; i < size/2; i ++) {
+    out[0][i*2] = in[0][i];
+    out[0][i*2+1] = in[0][i];
+  }
+
   switch (mode)
   {
     case START_COUNT_MODE:
