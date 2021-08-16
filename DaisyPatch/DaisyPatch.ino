@@ -209,8 +209,7 @@ void updateControlOutputs()
       break;
     case COUNT_MODE:
       // Output CV Out 1 - Current counted frequency scaled to 1V/Oct
-      analogWrite(PIN_PATCH_CV_1, scale(counter.frequency));
-      analogWrite(PIN_PATCH_CV_2, scale(counter.frequency_fft));
+      analogWrite(PIN_PATCH_CV_1, scale(counter.frequency_fft));
       break;
     case HOLD_MODE:
       // Output CV Out 1
