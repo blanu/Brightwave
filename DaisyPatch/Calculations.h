@@ -25,7 +25,7 @@ float scale(float hertz)
     return 0;
   }
 
-  float out = (hertz / 6000.0) * 255;
+  float out = log(hertz / 220.0) / log(2) * 78.46;
   if (out > 255) {
     return 255;
   }
